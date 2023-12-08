@@ -1,0 +1,542 @@
+--------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/yyy/Desktop/project3/empiricalproject3_helen.log
+  log type:  text
+ opened on:   5 Dec 2023, 00:06:18
+
+. 
+. * Check if 'estout' and 'outreg2' package are installed and install if n
+> ot present
+. cap which estout
+
+. if _rc == 1 ssc install estout
+
+. 
+. cap which outreg2
+
+. if _rc == 1 ssc install outreg2
+
+. 
+. * Load the dataset
+. use "`datapath'`dataset'", clear
+
+. 
+. * Error checking after loading data to ensure the file exists and is not
+>  empty
+. if _rc {
+.     di "Error: Dataset could not be loaded. Please check the file path."
+.     exit 1
+. }       
+
+. 
+. * Question 2: Random Assignment Evidence
+. * -----------------------------------
+. 
+. * Use the collapse command
+. collapse (mean) hoh_age homeless hh_income black white college_plus, by(
+> treatment_group)
+
+. 
+. * List the collapsed data
+. list
+
+     +-----------------------------------------------------------------+
+  1. | treatm~p |  hoh_age | homeless | hh_inc~e |    black |    white |
+     |        0 | 34.51379 | .1403509 | 19658.64 | .4736842 | .2681704 |
+     |-----------------------------------------------------------------|
+     |                            colleg~s                             |
+     |                            .0479798                             |
+     +-----------------------------------------------------------------+
+
+     +-----------------------------------------------------------------+
+  2. | treatm~p |  hoh_age | homeless | hh_inc~e |    black |    white |
+     |        1 | 34.04276 | .1496437 |    19190 | .4726841 | .2565321 |
+     |-----------------------------------------------------------------|
+     |                            colleg~s                             |
+     |                            .0309524                             |
+     +-----------------------------------------------------------------+
+
+. 
+. * Question 3 Balance Table
+. * -----------------------------------
+. 
+. * Re-load the full dataset
+. use "`datapath'`dataset'", clear
+
+. 
+. * Define a local macro for the relevant variables
+. local vars hoh_age homeless hh_income black white college_plus
+
+. 
+. * Create a new matrix to store the results
+. matrix results = J(6, 4, .)
+
+. 
+. * Loop over the variables to perform regressions and store the results
+. local rownum = 1
+
+. foreach var in `vars' {
+  2.     
+.         * Get the summary statistics for both control and treatment grou
+> ps
+.     quietly sum `var' if treatment_group == 0
+  3.     local mean_control = r(mean)
+  4.     quietly sum `var' if treatment_group == 1
+  5.     local mean_treatment = r(mean)
+  6.     
+.         * Store the means and calculate the difference in means
+.     matrix results[`rownum', 1] = `mean_control'
+  7.     matrix results[`rownum', 2] = `mean_treatment'
+  8.     matrix results[`rownum', 3] = `mean_treatment' - `mean_control'
+  9.         
+.     * Run regression to get the standard error of the difference
+.     quietly reg `var' i.treatment_group
+ 10.     matrix results[`rownum', 4] = _se[1.treatment_group]
+ 11. 
+.         * Increment the rownum for the next iteration
+.     local rownum = `rownum' + 1
+ 12. }
+
+. 
+. * Name the rows and columns of the results matrix
+. matrix rownames results = hoh_age homeless hh_income black white college
+> _plus
+
+. matrix colnames results = Mean_in_Control_Group Mean_in_Treatment_Group 
+> Difference_in_Means SE_of_Difference
+
+. 
+. * List the results matrix
+. matrix list results
+
+results[6,4]
+              Mean_in_Co~p  Mean_in_Tr~p  Difference~s  SE_of_Diff~e
+     hoh_age     34.513784     34.042755    -.47102912     .54791927
+    homeless     .14035088     .14964371     .00929283     .02463716
+   hh_income     19658.644     19190.005    -468.63936     842.61792
+       black     .47368421     .47268409    -.00100013     .03492636
+       white     .26817043     .25653207    -.01163836     .03076485
+college_plus      .0479798     .03095238    -.01702742     .01359975
+
+. 
+. * Question 5 Compliance Estimate Rate
+. * -----------------------------------
+. 
+. * Regress 'received_cmto_services' on 'treatment_group' and 'pha' catego
+> ries
+. regress received_cmto_services i.treatment_group i.pha
+
+      Source |       SS           df       MS      Number of obs   =      
+>  820
+-------------+----------------------------------   F(2, 817)       =    69
+> 3.26
+       Model |   123.57761         2  61.7888048   Prob > F        =    0.
+> 0000
+    Residual |  72.8175123       817  .089127922   R-squared       =    0.
+> 6292
+-------------+----------------------------------   Adj R-squared   =    0.
+> 6283
+       Total |  196.395122       819  .239798684   Root MSE        =    .2
+> 9854
+
+--------------------------------------------------------------------------
+> ----
+received_c~s | Coefficient  Std. err.      t    P>|t|     [95% conf. inter
+> val]
+-------------+------------------------------------------------------------
+> ----
+1.treatmen~p |   .7751097   .0208603    37.16   0.000     .7341636    .816
+> 0559
+             |
+         pha |
+        SHA  |   .0604793   .0209127     2.89   0.004     .0194304    .101
+> 5283
+       _cons |   -.028345   .0178729    -1.59   0.113    -.0634272    .006
+> 7373
+--------------------------------------------------------------------------
+> ----
+
+. 
+. * Question 7 ITT Effect
+. * -----------------------------------
+. 
+. * Perform regression to assess the effect of 'treatment_group' and 'pha'
+>  on 'leased_up_opp'.
+. regress leased_up_opp i.treatment_group i.pha
+
+      Source |       SS           df       MS      Number of obs   =      
+>  820
+-------------+----------------------------------   F(2, 817)       =     2
+> 1.73
+       Model |  7.12326173         2  3.56163087   Prob > F        =    0.
+> 0000
+    Residual |  133.924299       817  .163922031   R-squared       =    0.
+> 0505
+-------------+----------------------------------   Adj R-squared   =    0.
+> 0482
+       Total |  141.047561       819  .172219244   Root MSE        =    .4
+> 0487
+
+--------------------------------------------------------------------------
+> ----
+leased_up_~p | Coefficient  Std. err.      t    P>|t|     [95% conf. inter
+> val]
+-------------+------------------------------------------------------------
+> ----
+1.treatmen~p |   .1804002     .02829     6.38   0.000     .1248706    .235
+> 9299
+             |
+         pha |
+        SHA  |  -.0450926    .028361    -1.59   0.112    -.1007616    .010
+> 5764
+       _cons |   .1489532   .0242386     6.15   0.000     .1013759    .196
+> 5304
+--------------------------------------------------------------------------
+> ----
+
+. 
+. * Question 8 TOT Effect
+. * -----------------------------------
+. 
+. * Estimate 'leased_up_opp' regression and store ITT effect and SE.
+. regress leased_up_opp treatment_group i.pha
+
+      Source |       SS           df       MS      Number of obs   =      
+>  820
+-------------+----------------------------------   F(2, 817)       =     2
+> 1.73
+       Model |  7.12326173         2  3.56163087   Prob > F        =    0.
+> 0000
+    Residual |  133.924299       817  .163922031   R-squared       =    0.
+> 0505
+-------------+----------------------------------   Adj R-squared   =    0.
+> 0482
+       Total |  141.047561       819  .172219244   Root MSE        =    .4
+> 0487
+
+--------------------------------------------------------------------------
+> ----
+leased_up_~p | Coefficient  Std. err.      t    P>|t|     [95% conf. inter
+> val]
+-------------+------------------------------------------------------------
+> ----
+treatment_~p |   .1804002     .02829     6.38   0.000     .1248706    .235
+> 9299
+             |
+         pha |
+        SHA  |  -.0450926    .028361    -1.59   0.112    -.1007616    .010
+> 5764
+       _cons |   .1489532   .0242386     6.15   0.000     .1013759    .196
+> 5304
+--------------------------------------------------------------------------
+> ----
+
+. scalar itt_effect = _b[treatment_group]
+
+. scalar itt_se = _se[treatment_group]
+
+. 
+. * Estimate 'received_cmto_services' regression and store compliance rate
+> .
+. regress received_cmto_services treatment_group i.pha
+
+      Source |       SS           df       MS      Number of obs   =      
+>  820
+-------------+----------------------------------   F(2, 817)       =    69
+> 3.26
+       Model |   123.57761         2  61.7888048   Prob > F        =    0.
+> 0000
+    Residual |  72.8175123       817  .089127922   R-squared       =    0.
+> 6292
+-------------+----------------------------------   Adj R-squared   =    0.
+> 6283
+       Total |  196.395122       819  .239798684   Root MSE        =    .2
+> 9854
+
+--------------------------------------------------------------------------
+> ----
+received_c~s | Coefficient  Std. err.      t    P>|t|     [95% conf. inter
+> val]
+-------------+------------------------------------------------------------
+> ----
+treatment_~p |   .7751097   .0208603    37.16   0.000     .7341636    .816
+> 0559
+             |
+         pha |
+        SHA  |   .0604793   .0209127     2.89   0.004     .0194304    .101
+> 5283
+       _cons |   -.028345   .0178729    -1.59   0.113    -.0634272    .006
+> 7373
+--------------------------------------------------------------------------
+> ----
+
+. scalar compliance_rate = _b[treatment_group]
+
+. 
+. * Display TOT effect and SE.
+. display "TOT effect = " itt_effect / compliance_rate
+TOT effect = .23274153
+
+. display "TOT SE = " itt_se / compliance_rate
+TOT SE = .03649805
+
+. 
+. * Question 9 Predicted Childhood Change in Environment
+. * -----------------------------------
+. 
+. * Calculate and store the predicted childhood environmental change
+. gen predicted_change_in_environment = forecast_kravg30_p25 - origin_fore
+> cast_kravg30_p25
+
+. 
+. * Initialize 'group' variable and assign treatment group as '1'
+. gen group = 0
+
+. replace group = 1 if treatment_group == 1
+(421 real changes made)
+
+. 
+. * Plot density of predicted change for treatment and control groups
+. twoway (kdensity predicted_change_in_environment if group == 1, lpattern
+> (solid) lcolor(blue)) (kdensity predicted_change_in_environment if group
+>  == 0, lpattern(dash) lcolor(red)), legend(label(1 "Treatment") label(2 
+> "Control")) title("Predicted Change in Childhood Environment") xtitle("P
+> redicted Change") ytitle("Density") name(KDEPlot, replace)
+
+. 
+. * Export the density plot to a PNG image
+. graph export "`datapath'figures_helen/figure1.png", replace
+file /Users/yyy/Desktop/project3/figures_helen/figure1.png saved as PNG
+    format
+
+. 
+. * Question 10 Heterogeneous Treatment Effects
+. * -----------------------------------
+. 
+. * Calculate median household income and define higher/lower income group
+> s
+. egen median_income = median(hh_income)
+
+. gen higher_income = hh_income > median_income
+
+. gen lower_income = hh_income <= median_income
+
+. 
+. * Define regression formula
+. local formula "leased_up_opp treatment_group i.pha"
+
+. 
+. * Analyze effect on higher income group
+. regress `formula' if higher_income
+
+      Source |       SS           df       MS      Number of obs   =      
+>  410
+-------------+----------------------------------   F(2, 407)       =     1
+> 2.40
+       Model |  3.69943863         2  1.84971932   Prob > F        =    0.
+> 0000
+    Residual |  60.6908053       407  .149117458   R-squared       =    0.
+> 0575
+-------------+----------------------------------   Adj R-squared   =    0.
+> 0528
+       Total |  64.3902439       409  .157433359   Root MSE        =    .3
+> 8616
+
+--------------------------------------------------------------------------
+> ----
+leased_up_~p | Coefficient  Std. err.      t    P>|t|     [95% conf. inter
+> val]
+-------------+------------------------------------------------------------
+> ----
+treatment_~p |    .185082   .0381579     4.85   0.000     .1100707    .260
+> 0933
+             |
+         pha |
+        SHA  |  -.0408548   .0386823    -1.06   0.292    -.1168969    .035
+> 1873
+       _cons |   .1173633   .0318726     3.68   0.000     .0547079    .180
+> 0187
+--------------------------------------------------------------------------
+> ----
+
+. scalar itt_effect_higher = _b[treatment_group]
+
+. summarize received_cmto_services if treatment_group == 1 & higher_income
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+received_c~s |        210    .7714286    .4209159          0          1
+
+. scalar compliance_rate_higher = r(mean)
+
+. scalar tot_higher_income = itt_effect_higher / compliance_rate_higher
+
+. 
+. * Analyze effect on lower income group
+. regress `formula' if lower_income
+
+      Source |       SS           df       MS      Number of obs   =      
+>  410
+-------------+----------------------------------   F(2, 407)       =      
+> 9.89
+       Model |  3.52924685         2  1.76462343   Prob > F        =    0.
+> 0001
+    Residual |  72.5902653       407   .17835446   R-squared       =    0.
+> 0464
+-------------+----------------------------------   Adj R-squared   =    0.
+> 0417
+       Total |  76.1195122       409  .186111277   Root MSE        =    .4
+> 2232
+
+--------------------------------------------------------------------------
+> ----
+leased_up_~p | Coefficient  Std. err.      t    P>|t|     [95% conf. inter
+> val]
+-------------+------------------------------------------------------------
+> ----
+treatment_~p |   .1753723   .0417339     4.20   0.000     .0933314    .257
+> 4132
+             |
+         pha |
+        SHA  |  -.0590951   .0417205    -1.42   0.157    -.1411096    .022
+> 9194
+       _cons |   .1860689   .0367905     5.06   0.000     .1137456    .258
+> 3921
+--------------------------------------------------------------------------
+> ----
+
+. scalar itt_effect_lower = _b[treatment_group]
+
+. summarize received_cmto_services if treatment_group == 1 & lower_income
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+received_c~s |        211    .7772512    .4170806          0          1
+
+. scalar compliance_rate_lower = r(mean)
+
+. scalar tot_lower_income = itt_effect_lower / compliance_rate_lower
+
+. 
+. * List labels for 'pha'
+. label list pha
+pha:
+           0 KCHA
+           1 SHA
+
+. 
+. * Analyze effect for KCHA
+. regress `formula' if pha == 0
+note: 0.pha omitted because of collinearity.
+
+      Source |       SS           df       MS      Number of obs   =      
+>  441
+-------------+----------------------------------   F(1, 439)       =     4
+> 0.46
+       Model |  6.83849932         1  6.83849932   Prob > F        =    0.
+> 0000
+    Residual |  74.2000494       439  .169020614   R-squared       =    0.
+> 0844
+-------------+----------------------------------   Adj R-squared   =    0.
+> 0823
+       Total |  81.0385488       440   .18417852   Root MSE        =    .4
+> 1112
+
+--------------------------------------------------------------------------
+> ----
+leased_up_~p | Coefficient  Std. err.      t    P>|t|     [95% conf. inter
+> val]
+-------------+------------------------------------------------------------
+> ----
+treatment_~p |   .2492379   .0391835     6.36   0.000     .1722273    .326
+> 2485
+             |
+         pha |
+       KCHA  |          0  (omitted)
+       _cons |   .1132075   .0282359     4.01   0.000     .0577132    .168
+> 7019
+--------------------------------------------------------------------------
+> ----
+
+. scalar itt_effect_kcha = _b[treatment_group]
+
+. summarize received_cmto_services if treatment_group == 1 & pha == 0
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+received_c~s |        229     .720524    .4497248          0          1
+
+. scalar compliance_rate_kcha = r(mean)
+
+. scalar tot_kcha = itt_effect_kcha / compliance_rate_kcha
+
+. 
+. * Analyze effect for SHA
+. regress `formula' if pha == 1
+note: 1.pha omitted because of collinearity.
+
+      Source |       SS           df       MS      Number of obs   =      
+>  379
+-------------+----------------------------------   F(1, 377)       =      
+> 6.14
+       Model |  .955055243         1  .955055243   Prob > F        =    0.
+> 0136
+    Residual |  58.5963959       377  .155428106   R-squared       =    0.
+> 0160
+-------------+----------------------------------   Adj R-squared   =    0.
+> 0134
+       Total |  59.5514512       378  .157543522   Root MSE        =    .3
+> 9424
+
+--------------------------------------------------------------------------
+> ----
+leased_up_~p | Coefficient  Std. err.      t    P>|t|     [95% conf. inter
+> val]
+-------------+------------------------------------------------------------
+> ----
+treatment_~p |   .1004066   .0405054     2.48   0.014     .0207618    .180
+> 0515
+             |
+         pha |
+        SHA  |          0  (omitted)
+       _cons |    .144385     .02883     5.01   0.000     .0876974    .201
+> 0727
+--------------------------------------------------------------------------
+> ----
+
+. scalar itt_effect_sha = _b[treatment_group]
+
+. summarize received_cmto_services if treatment_group == 1 & pha == 1
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+received_c~s |        192    .8385417    .3689151          0          1
+
+. scalar compliance_rate_sha = r(mean)
+
+. scalar tot_sha = itt_effect_sha / compliance_rate_sha
+
+. 
+. * Display Treatment on Treated (TOT) effects for income groups and PHAs
+. display "TOT for higher income families: " tot_higher_income
+TOT for higher income families: .23992112
+
+. display "TOT for lower income families: " tot_lower_income
+TOT for lower income families: .22563143
+
+. display "TOT for KCHA: " tot_kcha
+TOT for KCHA: .34591195
+
+. display "TOT for SHA: " tot_sha
+TOT for SHA: .1197396
+
+. 
+. * Cleanup and close
+. * -----------------------------------
+. 
+. log close
+      name:  <unnamed>
+       log:  /Users/yyy/Desktop/project3/empiricalproject3_helen.log
+  log type:  text
+ closed on:   5 Dec 2023, 00:06:21
+--------------------------------------------------------------------------
