@@ -1,7 +1,7 @@
 # Empirical Project 3 - The Creating Moves to Opportunity (CMTO) Experiment
 This repository contains my work on Empirical Project 3 from Prof. Raj Chetty's Big Data course, which is publicly accessible at [Opportunity Insights Course website](https://opportunityinsights.org/course/). The project explores the effectiveness of the CMTO program in facilitating moves to higher-opportunity neighborhoods for low-income families.
 
-## Technologies Used
+## Technology Used
 - STATA
 
 ## How to Use
